@@ -1,0 +1,151 @@
+import os
+import cv2
+import numpy as np
+from glob import glob
+from tqdm import tqdm
+import torch
+from u2net import U2NET  # 需要从U-2-Net官方仓库获取模型代码
+
+# 定义设备
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+
+def u2net_saliency(image, model):
+    """使用U-2-Net生成显著性图"""
+    # 预处理图像：缩放 + 归一化
+    input_img = cv2.resize(image, (320, 320))
+    input_img = input_img.astype(np.float32) / 255.0
+    input_tensor = torch.tensor(input_img).permute(2, 0, 1).unsqueeze(0).to(device)
+
+    # 推理
+    with torch.no_grad():
+        d1, _, _, _, _, _, _ = model(input_tensor)
+    sal_map = d1.squeeze().cpu().numpy()
+
+    # 后处理：归一化 + 还原原始尺寸
+    sal_map = (sal_map - sal_map.min()) / (sal_map.max() - sal_map.min())
+    sal_map = cv2.resize(sal_map, (image.shape[1], image.shape[0]))
+    return sal_map
+
+
+def get_center_point(saliency_map, threshold=0.5):
+    """计算显著性图的中心点"""
+    # 二值化
+    binary_map = (saliency_map > threshold).astype(np.uint8)
+
+    # 计算轮廓
+    contours, _ = cv2.findContours(binary_map, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    if len(contours) == 0:
+        return None  # 没有找到轮廓
+
+    # 找到最大轮廓
+    largest_contour = max(contours, key=lambda x: cv2.contourArea(x))
+
+    # 计算轮廓的中心点
+    M = cv2.moments(largest_contour)
+    if M["m00"] != 0:
+        cX = int(M["m10"] / M["m00"])
+        cY = int(M["m01"] / M["m00"])
+        return (cX, cY)
+    else:
+        return None
+
+
+def crop_image(image, center, size=224):
+    """以中心点裁剪图像"""
+    h, w = image.shape[:2]
+
+    if center is None:
+        # 如果没有显著性中心点，使用图像中心点
+        center = (w // 2, h // 2)
+
+    # 计算裁剪区域
+    x1 = max(0, center[0] - size // 2)
+    y1 = max(0, center[1] - size // 2)
+    x2 = min(w, x1 + size)
+    y2 = min(h, y1 + size)
+
+    # 调整裁剪区域确保为224x224
+    if x2 - x1 < size:
+        diff = size - (x2 - x1)
+        x1 = max(0, x1 - diff // 2)
+        x2 = x1 + size
+    if y2 - y1 < size:
+        diff = size - (y2 - y1)
+        y1 = max(0, y1 - diff // 2)
+        y2 = y1 + size
+
+    # 裁剪图像
+    cropped = image[y1:y2, x1:x2]
+
+    # 如果尺寸不足，填充边界
+    if cropped.shape[0] < size or cropped.shape[1] < size:
+        padded = np.zeros((size, size, 3), dtype=np.uint8)
+        h_crop, w_crop = cropped.shape[:2]
+        padded[:h_crop, :w_crop] = cropped
+        return padded
+    else:
+        return cropped
+
+
+def process_image(image_path, output_dir, model):
+    """处理单张图像"""
+    # 读取图像
+    image = cv2.imread(image_path)
+    if image is None:
+        print(f"无法读取图像: {image_path}")
+        return
+
+    # 调整图像大小以加速处理（可选）
+    h, w = image.shape[:2]
+    if max(h, w) > 2000:
+        scale = 2000 / max(h, w)
+        image = cv2.resize(image, (int(w * scale), int(h * scale)))
+
+    # 使用U-2-Net计算显著性
+    saliency_map = u2net_saliency(image, model)
+
+    # 计算显著性图的中心点
+    center = get_center_point(saliency_map)
+
+    # 裁剪图像
+    cropped = crop_image(image, center)
+
+    # 保存裁剪后的图像
+    filename = os.path.basename(image_path)
+    output_path = os.path.join(output_dir, filename)
+    cv2.imwrite(output_path, cropped)
+
+    return output_path
+
+
+def process_dataset(input_dir, output_dir, model):
+    """处理整个数据集"""
+    # 创建输出目录
+    os.makedirs(output_dir, exist_ok=True)
+
+    # 获取所有图像路径
+    image_paths = glob(os.path.join(input_dir, '*.JPG')) + \
+                  glob(os.path.join(input_dir, '*.jpeg')) + \
+                  glob(os.path.join(input_dir, '*.png')) + \
+                  glob(os.path.join(input_dir, '*.bmp'))
+
+    # 处理每张图像
+    for image_path in tqdm(image_paths, desc="处理图像"):
+        process_image(image_path, output_dir, model)
+
+    print(f"完成! 裁剪后的图像已保存到: {output_dir}")
+
+
+# 使用示例
+if __name__ == "__main__":
+    # 加载U-2-Net模型
+    model = U2NET(in_ch=3, out_ch=1).to(device)
+    model.load_state_dict(torch.load('D:/浏览器下载/StairIQA-main/u2net.pth', map_location=device))  # 替换为模型路径
+    model.eval()
+
+    input_dir = "D:/SpAq/TestImage"  # 替换为输入目录
+    output_dir = "D:/SpAq/TestImage/Cropped_Images_U2Net"  # 替换为输出目录
+
+    process_dataset(input_dir, output_dir, model)

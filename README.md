@@ -40,7 +40,8 @@ The following authentic distortion datasets are supported for training and testi
 
 ## 3. Installation
 
-### Dependencies
-Before running the framework, make sure the required deep learning environments are ready:
+### Environment Dependencies
+We provide a comprehensive `requirements.txt` file containing all the necessary packages for this framework. You can automatically configure and install the entire environment with a single command:
+
 ```bash
-pip install torch torchvision pandas numpy opencv-python tqdm
+pip install -r requirements.txt

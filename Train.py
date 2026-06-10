@@ -10,10 +10,11 @@ import torch.backends.cudnn as cudnn
 import IQADataset
 from utils import performance_fit
 import logging
-from models.ResEV import ResEVIQA
-# from models.RUS_EV2S import RUS2IQA
+from models.SAGF import SAGFIQA
+import sys
 import os
 
+######5月14日 只进行
 # 配置日志模块
 logging.basicConfig(
     filename='training_log.log',
@@ -36,14 +37,15 @@ def parse_args():
     parser.add_argument('--decay_ratio', type=float, default=0.9)
     parser.add_argument('--decay_interval', type=float, default=10)
     parser.add_argument('--snapshot', help='Path of model snapshot.', type=str,
-                        default='D:\浏览器下载\StairIQA-main\histor_ypkl\Ablation\sage\koniq')
-    parser.add_argument('--results_path', type=str)
+                        default=r'D:')
+    parser.add_argument('--results_path', type=str,)
     parser.add_argument('--database_dir', type=str,
-                        default=r'E:/shujuji\/koniq10k_1024x768/1024x768')
-    parser.add_argument('--model', default='RUS2IQA', type=str)
+                        default=r'E:\shujuji\ChallengeDB_release\ChallengeDB_release\Images')
+    parser.add_argument('--model', default='SAGF', type=str)
     parser.add_argument('--multi_gpu', type=bool, default=False)
-    parser.add_argument('--print_samples', type=int, default=201)
-    parser.add_argument('--database', default='Koniq10k', type=str)
+    parser.add_argument('--print_samples', type=int, default=23)
+    parser.add_argument('--database', default='LIVE_challenge', type=str)
+    parser.add_argument('--num_repeats', help='Number of repeated experiments', default=3, type=int)
     parser.add_argument('--test_method', default='one', type=str,
                         help='use the center crop or five crop to test the image')
 
@@ -85,14 +87,15 @@ if __name__ == '__main__':
     database_dir = args.database_dir
     resize = args.resize
     crop_size = args.crop_size
+    num_repeats = args.num_repeats
 
-    best_all = np.zeros([10, 2])
+    best_all = np.zeros([num_repeats, 2])
     logging.info("**************************************************************************************************")
     logging.info("**************************************************************************************************")
     logging.info(f"Model = {args.model}, Database = {database}, Batch_size = {batch_size}, Num_epochs = {num_epochs}")
     logging.info("**************************************************************************************************")
     logging.info("**************************************************************************************************")
-    for exp_id in range(10):
+    for exp_id in range(num_repeats):
 
         print('The current exp_id is ' + str(exp_id))
         if not os.path.exists(snapshot):
@@ -130,11 +133,9 @@ if __name__ == '__main__':
         print(test_filename_list)
 
         # load the network
-        if args.model == 'ResEVIQA':
-            model = ResEVIQA()
-        # if args.model == 'RUS2IQA':
-        #     model = RUS2IQA()  ##四分支
-       # 消融实验：
+        if args.model == 'SAGF':
+            model = SAGFIQA()  #
+        # ------------------------------------------------
 
         # 只对image进行resize和crop
         transformations_train_image = transforms.Compose([transforms.Resize(resize), transforms.RandomCrop(crop_size),

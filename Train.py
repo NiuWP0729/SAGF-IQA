@@ -45,7 +45,7 @@ def parse_args():
     parser.add_argument('--multi_gpu', type=bool, default=False)
     parser.add_argument('--print_samples', type=int, default=23)
     parser.add_argument('--database', default='LIVE_challenge', type=str)
-    parser.add_argument('--num_repeats', help='Number of repeated experiments', default=3, type=int)
+    parser.add_argument('--num_repeats', help='Number of repeated experiments', default=10, type=int)
     parser.add_argument('--test_method', default='one', type=str,
                         help='use the center crop or five crop to test the image')
 

@@ -66,7 +66,8 @@ class ResNet50DualBranch(nn.Module):
         self.feature_extractor = nn.Sequential(*list(self.resnet50.children())[:-2])
 
         # CSA Attention Module for refinement
-        self.csa_attention = CSA_Attention(2048)
+        self.csa_attention_shallow = CSA_Attention(2048)
+        self.csa_attention_deep = CSA_Attention(2048)
 
         # Dimensionality alignment for shallow features
         self.adaptive_pool = nn.AdaptiveAvgPool2d((7, 7))
@@ -85,7 +86,7 @@ class ResNet50DualBranch(nn.Module):
         first_features = self.channel_adjust(first_features)
 
         # 3. Apply CSA Attention on spatial features, THEN global pool
-        first_features = self.csa_attention(first_features)
+        first_features = self.csa_attention_shallow(first_features)
         first_features = self.global_pool(first_features)
         first_features = torch.flatten(first_features, 1)  # [B, 2048]
 
@@ -93,7 +94,7 @@ class ResNet50DualBranch(nn.Module):
         last_features = self.feature_extractor(x)
 
         # 5. Apply CSA Attention on deep spatial features, THEN global pool
-        last_features = self.csa_attention(last_features)
+        last_features = self.csa_attention_deep(last_features)
         last_features = self.global_pool(last_features)
         last_features = torch.flatten(last_features, 1)  # [B, 2048]
 

@@ -60,7 +60,7 @@ class ResNet50DualBranch(nn.Module):
         self.first_layer = self.resnet50.conv1
         self.first_bn = self.resnet50.bn1
         self.first_relu = self.resnet50.relu
-        self.first_maxpool = self.resnet50.maxpool
+        
 
         # Deep semantic feature branch
         self.feature_extractor = nn.Sequential(*list(self.resnet50.children())[:-2])
@@ -79,7 +79,7 @@ class ResNet50DualBranch(nn.Module):
         first_features = self.first_layer(x)
         first_features = self.first_bn(first_features)
         first_features = self.first_relu(first_features)
-        first_features = self.first_maxpool(first_features)
+        
 
         # 2. Dimensionality adjustment to match deep features (Retains spatial layout 7x7)
         first_features = self.adaptive_pool(first_features)

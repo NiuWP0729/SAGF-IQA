@@ -184,11 +184,6 @@ if __name__ == '__main__':
 
         criterion = nn.MSELoss().to(device)
 
-        param_num = 0
-        for param in model.parameters():
-            param_num += int(np.prod(param.shape))
-        print('Trainable params: %.2f million' % (param_num / 1e6))
-
         optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=0.0000001)
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=decay_interval, gamma=decay_ratio)
 
